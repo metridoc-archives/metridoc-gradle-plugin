@@ -1,0 +1,30 @@
+apply plugin: "groovy"
+apply plugin: "application"
+
+buildscript {
+    repositories {
+        mavenLocal()
+        metridocRepo()
+    }
+
+    dependencies {
+        classpath "com.github.metridoc:metridoc-gradle-plugin:0.1-SNAPSHOT"
+    }
+}
+apply plugin: "metridoc"
+
+repositories {
+    mavenCentral()
+    metridocRepo()
+}
+
+logger.error(project.properties.containsKey("metridocCore") as String)
+dependencies {
+    compile metridocCore()
+    testCompile 'org.spockframework:spock-core:0.7-groovy-2.0'
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = "1.7"
+}
+

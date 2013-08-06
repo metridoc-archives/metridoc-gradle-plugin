@@ -1,0 +1,31 @@
+apply plugin: "groovy"
+apply plugin: "application"
+apply plugin: "maven"
+
+archivesBaseName = "metridoc-gradle-plugin"
+group = "com.github.metridoc"
+version = "0.1-SNAPSHOT"
+
+
+buildscript {
+    dependencies {
+        classpath files("src/main/groovy")
+        classpath files("src/main/resources")
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // gradleApi() drags in the Groovy bundled with Gradle, so always a good idea
+    // to specify localGroovy() too
+    compile localGroovy(), gradleApi()
+
+    testCompile "org.spockframework:spock-core:0.7-groovy-1.8", "cglib:cglib-nodep:2.2.2"
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = "1.7"
+}
