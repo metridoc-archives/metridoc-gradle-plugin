@@ -4,8 +4,7 @@ apply plugin: "maven"
 
 archivesBaseName = "metridoc-gradle-plugin"
 group = "com.github.metridoc"
-version = "0.1-SNAPSHOT"
-
+version = "0.1"
 
 buildscript {
     dependencies {
@@ -28,4 +27,18 @@ dependencies {
 
 task wrapper(type: Wrapper) {
     gradleVersion = "1.7"
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+
+            repository(
+                    id: "Metridoc bintray repo",
+                    url: "https://api.bintray.com/maven/upennlib/metridoc/metridoc-gradle-plugin",
+            ) {
+                authentication(userName: project.properties.bintrayUsername, password: project.properties.bintrayPassword)
+            }
+        }
+    }
 }
