@@ -4,7 +4,6 @@ import groovy.json.JsonSlurper
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.Task
 import org.gradle.api.tasks.Upload
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.wrapper.Wrapper
@@ -146,7 +145,6 @@ class MetridocGradlePlugin implements Plugin<Project> {
         if (!proj.hasProperty(name)) {
             throw new GradleException("You must define the project property '$name'")
         }
-        println "adding property $name with $proj.name"
         upload."$name" = proj."$name"
     }
 }

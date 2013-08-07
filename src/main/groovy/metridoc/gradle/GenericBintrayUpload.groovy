@@ -36,7 +36,6 @@ class GenericBintrayUpload extends DefaultTask {
         new URI(bintrayRepo).toURL().openConnection().with {
             // Add basic authentication header.
             setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
-            println "header is $bintrayUsername:$bintrayPassword"
             doOutput = true
             fixedLengthStreamingMode = artifactFile.size()
             requestMethod = "PUT"
