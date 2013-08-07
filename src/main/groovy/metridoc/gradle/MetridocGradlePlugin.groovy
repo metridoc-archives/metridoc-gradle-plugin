@@ -1,27 +1,31 @@
 package metridoc.gradle
 
 import groovy.json.JsonSlurper
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.api.tasks.Upload
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.api.tasks.wrapper.Wrapper
+import org.gradle.execution.taskgraph.DefaultTaskGraphExecuter
 
 /**
  * Created with IntelliJ IDEA on 8/6/13
  * @author Tommy Barker
  */
-class MetridocGradlePlugin implements Plugin<Project>{
+class MetridocGradlePlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
         Upload installTask = project.tasks.withType(Upload).findByName('install');
-        if(!installTask) {
+        if (!installTask) {
             project.apply(plugin: "maven")
             installTask = project.tasks.withType(Upload).findByName('install');
             println installTask
         }
 
-        project.ext.set("enableMaven") {Closure configurePom ->
-            project.uploadArchives{
+        project.ext.set("enableMaven") { Closure configurePom ->
+            project.uploadArchives {
                 repositories {
                     mavenDeployer {
                         repository(
@@ -66,7 +70,7 @@ class MetridocGradlePlugin implements Plugin<Project>{
         }
 
         project.ext.set("metridocJobCore") {
-            if(it) {
+            if (it) {
                 return "com.github.metridoc:metridoc-job-core:$it"
             }
             else {
@@ -75,7 +79,7 @@ class MetridocGradlePlugin implements Plugin<Project>{
         }
 
         project.ext.set("metridocToolGorm") {
-            if(it) {
+            if (it) {
                 return "com.github.metridoc:metridoc-tool-gorm:$it"
             }
             else {
@@ -83,13 +87,16 @@ class MetridocGradlePlugin implements Plugin<Project>{
             }
         }
 
-        project.task("uploadToBintray", dependsOn: ["prepareForBintrayUpload", "uploadArchives"])
+        project.task("wrapper", type: Wrapper) {
+            gradleVersion = project.hasProperty("gradleWrapperVersion") ? project.gradleWrapperVersion : "1.7"
+        }
 
+        project.task("uploadToBintray", dependsOn: ["prepareForBintrayUpload", "uploadArchives"])
         project.task("prepareForBintrayUpload") << {
 
             def uploadArchives = project.tasks.findByName("uploadArchives")
 
-            if(!project.version || "unspecified" == project.version) {
+            if (!project.version || "unspecified" == project.version) {
                 project.logger.warn "a project version is required to upload to bintray, [uploadToBintray] task has been skipped"
                 uploadArchives.enabled = false
                 return
@@ -101,7 +108,7 @@ class MetridocGradlePlugin implements Plugin<Project>{
                 return
             }
 
-            if (!project.hasProperty("bintrayUsername") ||  !project.hasProperty("bintrayPassword")) {
+            if (!project.hasProperty("bintrayUsername") || !project.hasProperty("bintrayPassword")) {
                 println "bintray credentials not setup, skipping upload to bintray"
                 uploadArchives.enabled = false
                 return
@@ -117,5 +124,29 @@ class MetridocGradlePlugin implements Plugin<Project>{
                 uploadArchives.enabled = false
             }
         }
+
+        // Lazy initialisation of generic upload task
+        project.gradle.taskGraph.whenReady { DefaultTaskGraphExecuter graph ->
+            graph.allTasks.each {task ->
+                if(task instanceof GenericBintrayUpload) {
+                    project.tasks.withType(GenericBintrayUpload).each {uploadDist ->
+                        verifyAndSetProperty(project, task, 'bintrayUsername')
+                        verifyAndSetProperty(project, task, 'bintrayPassword')
+                        verifyAndSetProperty(project, task, 'bintrayRepo')
+                    }
+                }
+            }
+        }
+    }
+
+    void verifyAndSetProperty(Project proj, GenericBintrayUpload upload, String name) {
+        if(upload."$name") {
+            return
+        }
+        if (!proj.hasProperty(name)) {
+            throw new GradleException("You must define the project property '$name'")
+        }
+        println "adding property $name with $proj.name"
+        upload."$name" = proj."$name"
     }
 }

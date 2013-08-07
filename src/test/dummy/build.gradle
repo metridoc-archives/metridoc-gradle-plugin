@@ -1,8 +1,11 @@
+import metridoc.gradle.GenericBintrayUpload
+
 apply plugin: "groovy"
 apply plugin: "application"
 apply plugin: "metridoc"
 
 version = 0.1
+mainClassName = "Dummy"
 
 buildscript {
     repositories {
@@ -16,7 +19,7 @@ buildscript {
     }
 
     dependencies {
-        classpath "com.github.metridoc:metridoc-gradle-plugin:0.1-SNAPSHOT"
+        classpath "com.github.metridoc:metridoc-gradle-plugin:0.1.1-SNAPSHOT"
     }
 }
 
@@ -36,8 +39,9 @@ dependencies {
     testCompile 'org.spockframework:spock-core:0.7-groovy-2.0'
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = "1.7"
+task uploadDist(type:GenericBintrayUpload) {
+    artifactFile = distZip.archivePath
+    bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc-distributions/metridoc-job-cli/$version/${distZip.archiveName}"
 }
 
 enableMaven { pom ->
