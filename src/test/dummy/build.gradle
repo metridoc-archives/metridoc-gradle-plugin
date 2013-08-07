@@ -1,0 +1,54 @@
+apply plugin: "groovy"
+apply plugin: "application"
+apply plugin: "metridoc"
+
+version = 0.1
+
+buildscript {
+    repositories {
+        mavenLocal()
+        maven {
+            url = "http://dl.bintray.com/upennlib/metridoc"
+        }
+        maven {
+            url = "http://jcenter.bintray.com/"
+        }
+    }
+
+    dependencies {
+        classpath "com.github.metridoc:metridoc-gradle-plugin:0.1-SNAPSHOT"
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = "http://dl.bintray.com/upennlib/metridoc"
+    }
+    maven {
+        url = "http://jcenter.bintray.com/"
+    }
+}
+
+dependencies {
+    compile 'org.codehaus.groovy:groovy-all:2.0.8'
+    compile metridocJobCore()
+    testCompile 'org.spockframework:spock-core:0.7-groovy-2.0'
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = "1.7"
+}
+
+enableMaven { pom ->
+    pom.groupId = "dummy"
+    pom.project {
+        developers {
+            developer {
+                id = 'tbarker'
+                name = 'Thomas Barker'
+                email = 'tbarker@pobox.upenn.edu'
+            }
+        }
+    }
+}
