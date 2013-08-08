@@ -29,7 +29,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
                     mavenDeployer {
                         repository(
                                 id: project.properties.mavenRepoId ?: "Metridoc bintray repo",
-                                url: project.properties.mavenRepoUrl ?: "https://api.bintray.com/maven/upennlib/metridoc/metridoc-job-core",
+                                url: project.properties.mavenRepoUrl ?: "https://api.bintray.com/maven/upennlib/metridoc/${project.properties.archivesBaseName}",
                         ) {
                             authentication(userName: project.properties.bintrayUsername, password: project.properties.bintrayPassword)
                         }
@@ -113,7 +113,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
                 return
             }
 
-            def json = new URL("https://api.bintray.com/packages/upennlib/metridoc/metridoc-job-core").text
+            def json = new URL("https://api.bintray.com/packages/upennlib/metridoc/${project.properties.archivesBaseName}").text
             def slurper = new JsonSlurper()
             def versions = slurper.parseText(json).versions
             def versionAlreadyDeployed = versions.contains(project.version.toString())
@@ -128,17 +128,18 @@ class MetridocGradlePlugin implements Plugin<Project> {
         project.gradle.taskGraph.whenReady { DefaultTaskGraphExecuter graph ->
             graph.allTasks.each {task ->
                 if(task instanceof GenericBintrayUpload) {
-                    project.tasks.withType(GenericBintrayUpload).each {uploadDist ->
+                    project.tasks.withType(GenericBintrayUpload).each {GenericBintrayUpload uploadDist ->
                         verifyAndSetProperty(project, task, 'bintrayUsername')
                         verifyAndSetProperty(project, task, 'bintrayPassword')
                         verifyAndSetProperty(project, task, 'bintrayRepo')
+                        verifyAndSetProperty(project, task, 'archivesBaseName')
                     }
                 }
             }
         }
     }
 
-    void verifyAndSetProperty(Project proj, GenericBintrayUpload upload, String name) {
+    static void verifyAndSetProperty(Project proj, GenericBintrayUpload upload, String name) {
         if(upload."$name") {
             return
         }
