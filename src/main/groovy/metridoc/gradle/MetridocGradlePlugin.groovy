@@ -132,7 +132,6 @@ class MetridocGradlePlugin implements Plugin<Project> {
                         verifyAndSetProperty(project, task, 'bintrayUsername')
                         verifyAndSetProperty(project, task, 'bintrayPassword')
                         verifyAndSetProperty(project, task, 'bintrayRepo')
-                        verifyAndSetProperty(project, task, 'archivesBaseName')
                     }
                 }
             }
