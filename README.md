@@ -31,5 +31,19 @@ Project Extensions
 not povided, then the latest version is provided.  So `metridocJobCore()` becomes 
 `com.github.metridoc:metridoc-job-core:latest.integration` and `metridocJobCore(0.1)` becomes 
 `com.github.metridoc:metridoc-job-core:0.1`
+
 * `enableMaven([closure])` - enables maven related tools.  Configures the project to create source, docs and binary 
-artifacts.  
+artifacts.  If a closure is provided, the pom will be passed so the build can add anything else required that the 
+standard gradle / maven mapping doesn't handle
+
+Project Tasks
+-------------
+
+* `GenericBintrayUpload` - used to upload to a generic bintray repo.  Handy for binaries contained in a zip file.  
+the task requires the property `bintrayUsername`, `bintrayPassword` and `bintrayRepo` to be set
+
+Examples
+--------
+
+Checkout the dummy project under the test folder located 
+[here](https://github.com/metridoc/metridoc-gradle-plugin/tree/master/src/test/dummy)
