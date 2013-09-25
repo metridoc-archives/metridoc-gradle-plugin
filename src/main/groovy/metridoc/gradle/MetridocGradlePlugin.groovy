@@ -90,26 +90,28 @@ class MetridocGradlePlugin implements Plugin<Project> {
             gradleVersion = project.hasProperty("gradleWrapperVersion") ? project.gradleWrapperVersion : "1.7"
         }
 
-        project.task("uploadToBintray", dependsOn: ["prepareForBintrayUpload", "uploadArchives"])
+        project.task("uploadToBintray", dependsOn: ["prepareForBintrayUpload", "uploadArchives", "publishArtifacts"])
         project.task("prepareForBintrayUpload") << {
 
             def uploadArchives = project.tasks.findByName("uploadArchives")
+            def publishArtifacts = project.tasks.findByName("publishArtifacts")
+            def tasks = [uploadArchives, publishArtifacts]
 
             if (!project.version || "unspecified" == project.version) {
                 project.logger.warn "a project version is required to upload to bintray, [uploadToBintray] task has been skipped"
-                uploadArchives.enabled = false
+                tasks*.enabled = false
                 return
             }
 
             if (project.version.toString().contains("SNAPSHOT")) {
                 println "bintray does not support SNAPSHOTs, skipping upload to bintray"
-                uploadArchives.enabled = false
+                tasks*.enabled = false
                 return
             }
 
             if (!project.hasProperty("bintrayUsername") || !project.hasProperty("bintrayPassword")) {
                 println "bintray credentials not setup, skipping upload to bintray"
-                uploadArchives.enabled = false
+                tasks*.enabled = false
                 return
             }
 
@@ -120,7 +122,33 @@ class MetridocGradlePlugin implements Plugin<Project> {
 
             if (versionAlreadyDeployed) {
                 println "version $project.version has already been deployed to bintray, skipping upload to bintray"
-                uploadArchives.enabled = false
+                tasks*.enabled = false
+            }
+        }
+
+        project.task("publishArtifacts") {
+            def shouldPublish = project.hasProperty("publishArtifacts") && project.properties.publishArtifacts
+            if(shouldPublish) {
+                def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc/" +
+                        "${project.properties.archivesBaseName}/$project.version/publish"
+                new URI(bintrayRepo).toURL().openConnection().with {
+                    // Add basic authentication header.
+                    def bintrayUsername = project.properties.bintrayUsername
+                    def bintrayPassword = project.properties.bintrayPassword
+                    setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
+                    requestMethod = "POST"
+
+                    def inputStream = artifactFile.newInputStream()
+                    try {
+                        outputStream << inputStream
+                    }
+                    finally {
+                        inputStream.close()
+                        outputStream.close()
+                    }
+
+                    assert responseCode >= 200 && responseCode < 300
+                }
             }
         }
 
