@@ -125,38 +125,42 @@ class MetridocGradlePlugin implements Plugin<Project> {
                 tasks*.enabled = false
             }
         }
+        def uploadArchives = project.tasks.findByName("uploadArchives")
 
-        project.task("publishArtifacts") {
-            def shouldPublish = project.hasProperty("publishArtifacts") && project.properties.publishArtifacts
-            if(shouldPublish) {
+        uploadArchives.dependsOn("prepareForBintrayUpload")
+
+        project.task("publishArtifacts", dependsOn: ["prepareForBintrayUpload", "uploadArchives"]) << {
+            def shouldPublish = project.hasProperty("publish") && Boolean.valueOf(project.properties.publish)
+            if (shouldPublish) {
                 def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc/" +
                         "${project.properties.archivesBaseName}/$project.version/publish"
+                project.logger.info "publishing to $bintrayRepo"
                 new URI(bintrayRepo).toURL().openConnection().with {
+                    doOutput = true
+                    doInput = true
                     // Add basic authentication header.
                     def bintrayUsername = project.properties.bintrayUsername
                     def bintrayPassword = project.properties.bintrayPassword
                     setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
                     requestMethod = "POST"
-
-                    def inputStream = artifactFile.newInputStream()
-                    try {
-                        outputStream << inputStream
-                    }
-                    finally {
-                        inputStream.close()
-                        outputStream.close()
-                    }
+                    outputStream.flush()
+                    outputStream.close()
+                    project.logger.info inputStream.text
+                    inputStream.close()
 
                     assert responseCode >= 200 && responseCode < 300
                 }
+            }
+            else {
+                project.logger.warn "artifacts may have been uploaded, but they have not been published"
             }
         }
 
         // Lazy initialisation of generic upload task
         project.gradle.taskGraph.whenReady { DefaultTaskGraphExecuter graph ->
-            graph.allTasks.each {task ->
-                if(task instanceof GenericBintrayUpload) {
-                    project.tasks.withType(GenericBintrayUpload).each {GenericBintrayUpload uploadDist ->
+            graph.allTasks.each { task ->
+                if (task instanceof GenericBintrayUpload) {
+                    project.tasks.withType(GenericBintrayUpload).each { GenericBintrayUpload uploadDist ->
                         verifyAndSetProperty(project, task, 'bintrayUsername')
                         verifyAndSetProperty(project, task, 'bintrayPassword')
                         verifyAndSetProperty(project, task, 'bintrayRepo')
@@ -167,7 +171,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
     }
 
     static void verifyAndSetProperty(Project proj, GenericBintrayUpload upload, String name) {
-        if(upload."$name") {
+        if (upload."$name") {
             return
         }
         if (!proj.hasProperty(name)) {
