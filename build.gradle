@@ -6,7 +6,7 @@ apply plugin: "maven"
 
 archivesBaseName = "metridoc-gradle-plugin"
 group = "com.github.metridoc"
-version = "0.2.4"
+version = "0.2.5"
 
 buildscript {
     dependencies {
