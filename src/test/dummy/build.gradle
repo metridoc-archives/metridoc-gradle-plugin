@@ -12,12 +12,6 @@ group = "dummy"
 buildscript {
     repositories {
         mavenLocal()
-        maven {
-            url = "http://dl.bintray.com/upennlib/metridoc"
-        }
-        maven {
-            url = "http://jcenter.bintray.com/"
-        }
     }
 
     dependencies {
@@ -37,7 +31,8 @@ repositories {
 
 dependencies {
     compile 'org.codehaus.groovy:groovy-all:2.0.8'
-    compile metridocJobCore()
+    compile "com.github.metridoc:metridoc-job-core:0.9.3"
+    compile "com.github.metridoc:metridoc-tool-gorm:0.3.3"
     testCompile 'org.spockframework:spock-core:0.7-groovy-2.0'
 }
 
