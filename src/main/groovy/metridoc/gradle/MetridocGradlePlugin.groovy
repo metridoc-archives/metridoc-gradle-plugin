@@ -23,6 +23,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
         enableBintrayUpload(project)
         enableMetridocJobCoreDepUpdate(project)
         enableMetridocToolGormDepUpdate(project)
+        enableMetridocGradlePluginDepUpdate(project)
     }
 
     protected void enableMetridocToolGormDepUpdate(Project project) {
@@ -34,6 +35,12 @@ class MetridocGradlePlugin implements Plugin<Project> {
     protected void enableMetridocJobCoreDepUpdate(Project project) {
         project.task("updateMetridocJobCoreVersion") << {
             updateDependencyHelper(project, "metridoc-job-core")
+        }
+    }
+
+    protected void enableMetridocGradlePluginDepUpdate(Project project) {
+        project.task("updateMetridocGradlePluginVersion") << {
+            updateDependencyHelper(project, "metridoc-gradle-plugin")
         }
     }
 
