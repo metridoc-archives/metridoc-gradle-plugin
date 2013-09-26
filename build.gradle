@@ -107,3 +107,24 @@ task("publishArtifacts", dependsOn: ["prepareForBintrayUpload", "uploadArchives"
         project.logger.warn "artifacts may have been uploaded, but they have not been published"
     }
 }
+
+task("prepareForGitHubTagging") << {
+    def archiveBaseName = project.properties.archivesBaseName
+    def versionToSearch = "/v${project.version}\""
+    def tagUrl = "https://api.github.com/repos/metridoc/${archiveBaseName}/tags"
+    boolean alreadyExists = new URL(tagUrl).text.contains(versionToSearch)
+    if(alreadyExists) {
+        def tagRepoLocally = project.tasks.findByName("tagRepoLocally")
+        def releaseToGithub = project.tasks.findByName("releaseToGitHub")
+        def tasks = [tagRepoLocally, releaseToGithub]
+        tasks*.enabled = false
+    }
+}
+
+task tagRepoLocally(type: Exec, dependsOn: "prepareForGitHubTagging") {
+    commandLine 'git', 'tag', '-a', "v${project.version}", '-m', "'releasing ${project.version} to github'"
+}
+
+task releaseToGitHub(type: Exec, dependsOn: "tagRepoLocally") {
+    commandLine 'git', 'push', 'origin', "v${project.version}"
+}

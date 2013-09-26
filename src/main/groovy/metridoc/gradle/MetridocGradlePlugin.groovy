@@ -24,6 +24,30 @@ class MetridocGradlePlugin implements Plugin<Project> {
         enableMetridocJobCoreDepUpdate(project)
         enableMetridocToolGormDepUpdate(project)
         enableMetridocGradlePluginDepUpdate(project)
+        enableGitHubRelease(project)
+    }
+
+    protected void enableGitHubRelease(Project project) {
+        project.task("prepareForGitHubTagging") << {
+            def archiveBaseName = project.properties.archivesBaseName
+            def versionToSearch = "/v${project.version}\""
+            def tagUrl = "https://api.github.com/repos/metridoc/${archiveBaseName}/tags"
+            boolean alreadyExists = new URL(tagUrl).text.contains(versionToSearch)
+            if(alreadyExists) {
+                def tagRepoLocally = project.tasks.findByName("tagRepoLocally")
+                def releaseToGithub = project.tasks.findByName("releaseToGitHub")
+                def tasks = [tagRepoLocally, releaseToGithub]
+                tasks*.enabled = false
+            }
+        }
+
+        project.task(type: Exec, dependsOn: "prepareForGitHubTagging", "tagRepoLocally") {
+            commandLine 'git', 'tag', '-a', "v${project.version}", '-m', "'releasing ${project.version} to github'"
+        }
+
+        project.task(type: Exec, dependsOn: "tagRepoLocally", "releaseToGitHub") {
+            commandLine 'git', 'push', 'origin', "v${project.version}"
+        }
     }
 
     protected void enableMetridocToolGormDepUpdate(Project project) {
@@ -187,7 +211,6 @@ class MetridocGradlePlugin implements Plugin<Project> {
         if (!installTask) {
             project.apply(plugin: "maven")
             installTask = project.tasks.withType(Upload).findByName('install');
-            println installTask
         }
 
         project.ext.set("enableMaven") { Closure configurePom ->
