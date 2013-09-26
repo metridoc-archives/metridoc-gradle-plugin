@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 apply plugin: "groovy"
 apply plugin: "application"
 apply plugin: "maven"
@@ -40,5 +42,68 @@ uploadArchives {
                 authentication(userName: project.properties.bintrayUsername, password: project.properties.bintrayPassword)
             }
         }
+    }
+}
+
+
+/*
+    bintray stuff below... yes, I realize this plugin implements all this business.  But I can't for the life of me get
+    gradle to 'eat its own dog food'
+ */
+
+task uploadToBintray(dependsOn: ["prepareForBintrayUpload", "publishArtifacts"])
+
+task prepareForBintrayUpload << {
+
+    if (version.contains("SNAPSHOT")) {
+        println "bintray does not support SNAPSHOTs, skipping upload to bintray"
+        uploadArchives.enabled = false
+        publishArtifacts.enabled = false
+        return
+    }
+
+    if (!project.hasProperty("bintrayUsername")) {
+        println "bintray credentials not setup, skipping upload to bintray"
+        uploadArchives.enabled = false
+        publishArtifacts.enabled = false
+        return
+    }
+
+    def json = new URL("https://api.bintray.com/packages/upennlib/metridoc/metridoc-gradle-plugin").text
+    def slurper = new JsonSlurper()
+    def versions = slurper.parseText(json).versions
+    def versionAlreadyDeployed = versions.contains(version)
+
+    if (versionAlreadyDeployed) {
+        println "version $version has already been deployed to bintray, skipping upload to bintray"
+        uploadArchives.enabled = false
+        publishArtifacts.enabled = false
+    }
+}
+
+task("publishArtifacts", dependsOn: ["prepareForBintrayUpload", "uploadArchives"]) << {
+    def shouldPublish = project.hasProperty("publish") && Boolean.valueOf(project.properties.publish)
+    if (shouldPublish) {
+        def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc/" +
+                "${project.properties.archivesBaseName}/$project.version/publish"
+        project.logger.info "publishing to $bintrayRepo"
+        new URI(bintrayRepo).toURL().openConnection().with {
+            doOutput = true
+            doInput = true
+            // Add basic authentication header.
+            def bintrayUsername = project.properties.bintrayUsername
+            def bintrayPassword = project.properties.bintrayPassword
+            setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
+            requestMethod = "POST"
+            outputStream.flush()
+            outputStream.close()
+            project.logger.info inputStream.text
+            inputStream.close()
+
+            assert responseCode >= 200 && responseCode < 300
+        }
+    }
+    else {
+        project.logger.warn "artifacts may have been uploaded, but they have not been published"
     }
 }
