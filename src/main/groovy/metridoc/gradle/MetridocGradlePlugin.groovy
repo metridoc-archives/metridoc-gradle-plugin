@@ -29,7 +29,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
     }
 
     protected void enableGitHubRelease(Project project) {
-        project.task("prepareForGitHubTagging") << {
+        project.task("prepareForGitHubTagging") {
             def archiveBaseName = project.properties.archivesBaseName
             def versionToSearch = "/v${project.version}\""
             def tagUrl = "https://api.github.com/repos/metridoc/${archiveBaseName}/tags"
@@ -44,11 +44,13 @@ class MetridocGradlePlugin implements Plugin<Project> {
             }
         }
 
-        project.task(type: Exec, dependsOn: "prepareForGitHubTagging", "tagRepoLocally") << {
+        project.task(type: Exec, dependsOn: "prepareForGitHubTagging", "tagRepoLocally")  {
             commandLine 'git', 'tag', '-a', "v${project.version}", '-m', "'releasing ${project.version} to github'"
+            //in case the tag was already made
+            ignoreExitValue = true
         }
 
-        project.task(type: Exec, dependsOn: "tagRepoLocally", "tagRepoRemotely") << {
+        project.task(type: Exec, dependsOn: "tagRepoLocally", "tagRepoRemotely") {
             commandLine 'git', 'push', 'origin', "v${project.version}"
         }
 
