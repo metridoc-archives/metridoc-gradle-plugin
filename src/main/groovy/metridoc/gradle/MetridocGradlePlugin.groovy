@@ -33,22 +33,26 @@ class MetridocGradlePlugin implements Plugin<Project> {
             def archiveBaseName = project.properties.archivesBaseName
             def versionToSearch = "/v${project.version}\""
             def tagUrl = "https://api.github.com/repos/metridoc/${archiveBaseName}/tags"
+            println "checking if version ${project.version} has already been released"
             boolean alreadyExists = new URL(tagUrl).text.contains(versionToSearch)
             if(alreadyExists) {
+                println "version ${project.version} as already been released"
                 def tagRepoLocally = project.tasks.findByName("tagRepoLocally")
-                def releaseToGithub = project.tasks.findByName("releaseToGitHub")
+                def releaseToGithub = project.tasks.findByName("tagRepoRemotely")
                 def tasks = [tagRepoLocally, releaseToGithub]
                 tasks*.enabled = false
             }
         }
 
-        project.task(type: Exec, dependsOn: "prepareForGitHubTagging", "tagRepoLocally") {
+        project.task(type: Exec, dependsOn: "prepareForGitHubTagging", "tagRepoLocally") << {
             commandLine 'git', 'tag', '-a', "v${project.version}", '-m', "'releasing ${project.version} to github'"
         }
 
-        project.task(type: Exec, dependsOn: "tagRepoLocally", "releaseToGitHub") {
+        project.task(type: Exec, dependsOn: "tagRepoLocally", "tagRepoRemotely") << {
             commandLine 'git', 'push', 'origin', "v${project.version}"
         }
+
+        project.task("releaseToGitHub", dependsOn: ["prepareForGitHubTagging", "tagRepoLocally", "tagRepoRemotely"])
     }
 
     protected void enableMetridocToolGormDepUpdate(Project project) {
