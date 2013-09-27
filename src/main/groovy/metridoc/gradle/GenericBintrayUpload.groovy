@@ -1,5 +1,6 @@
 package metridoc.gradle
 
+import groovy.json.JsonSlurper
 import org.gradle.api.*
 import org.gradle.api.tasks.*
 
@@ -32,25 +33,81 @@ class GenericBintrayUpload extends DefaultTask {
     @TaskAction
     def publish() {
 
-        logger.lifecycle "Streaming artifact to Bintray at URL ${bintrayRepo}"
-        new URI(bintrayRepo).toURL().openConnection().with {
-            // Add basic authentication header.
-            setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
-            doOutput = true
-            fixedLengthStreamingMode = artifactFile.size()
-            requestMethod = "PUT"
+        boolean doUpload = !alreadyPublishedOrInvalid()
 
-            def inputStream = artifactFile.newInputStream()
-            try {
-                outputStream << inputStream
-            }
-            finally {
-                inputStream.close()
-                outputStream.close()
+        if (doUpload) {
+            logger.lifecycle "Streaming artifact to Bintray at URL ${bintrayRepo}"
+            new URI(bintrayRepo).toURL().openConnection().with {
+                // Add basic authentication header.
+                setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
+                doOutput = true
+                fixedLengthStreamingMode = artifactFile.size()
+                requestMethod = "PUT"
+
+                def inputStream = artifactFile.newInputStream()
+                try {
+                    outputStream << inputStream
+                }
+                finally {
+                    inputStream.close()
+                    outputStream.close()
+                }
+
+                assert responseCode >= 200 && responseCode < 300
             }
 
-            assert responseCode >= 200 && responseCode < 300
+            def shouldPublish = project.hasProperty("publish") && Boolean.valueOf(project.properties.publish)
+            if (shouldPublish) {
+                def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc-distributions/" +
+                        "${project.properties.archivesBaseName}/$project.version/publish"
+                project.logger.info "publishing to $bintrayRepo"
+                new URI(bintrayRepo).toURL().openConnection().with {
+                    doOutput = true
+                    doInput = true
+                    // Add basic authentication header.
+                    setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
+                    requestMethod = "POST"
+                    outputStream.flush()
+                    outputStream.close()
+                    project.logger.info inputStream.text
+                    inputStream.close()
+
+                    assert responseCode >= 200 && responseCode < 300
+                }
+            }
+            else {
+                project.logger.warn "artifacts may have been uploaded, but they have not been published"
+            }
         }
+    }
+
+    boolean alreadyPublishedOrInvalid() {
+        if (!project.version || "unspecified" == project.version) {
+            project.logger.warn "a project version is required to upload to bintray, skipping upload to bintray"
+            return true
+        }
+
+        if (project.version.toString().contains("SNAPSHOT")) {
+            project.logger.warn "bintray does not support SNAPSHOTs, skipping upload to bintray"
+            return true
+        }
+
+        assert bintrayUsername && bintrayPassword : "bintray user name and / or password have not been set"
+
+
+        def url = "https://api.bintray.com/packages/upennlib/metridoc-distributions/${project.properties.archivesBaseName}"
+        println "checking url $url to see if ${project.version} has already been released}"
+        def json = new URL(url).text
+        def slurper = new JsonSlurper()
+        def versions = slurper.parseText(json).versions
+        def versionAlreadyDeployed = versions.contains(project.version.toString())
+
+        if (versionAlreadyDeployed) {
+            println "version $project.version has already been deployed to bintray, skipping upload to bintray"
+            return true
+        }
+
+        return false
     }
 }
 
