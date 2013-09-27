@@ -29,7 +29,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
     }
 
     protected void enableGitHubRelease(Project project) {
-        project.task("prepareForGitHubTagging") {
+        project.task("prepareForGitHubTagging") << {
             def archiveBaseName = project.properties.archivesBaseName
             def versionToSearch = "/v${project.version}\""
             def tagUrl = "https://api.github.com/repos/metridoc/${archiveBaseName}/tags"
