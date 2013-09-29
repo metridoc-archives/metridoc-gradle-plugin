@@ -30,17 +30,20 @@ Project Extensions
 * `metridocJobCore([version])` - returns the dependency coordinate for the metridoc-job-core library.  If a version is
 not povided, then the latest version is provided.  So `metridocJobCore()` becomes 
 `com.github.metridoc:metridoc-job-core:latest.integration` and `metridocJobCore(0.1)` becomes 
-`com.github.metridoc:metridoc-job-core:0.1`
+`com.github.metridoc:metridoc-job-core:0.1`.
 
 * `enableMaven([closure])` - enables maven related tools.  Configures the project to create source, docs and binary 
 artifacts.  If a closure is provided, the pom will be passed so the build can add anything else required that the 
-standard gradle / maven mapping doesn't handle
+standard gradle / maven mapping doesn't handle.  An example of this can be seen in the 
+[metridoc-job-core](https://github.com/metridoc/metridoc-job-core) in the 
+[build.gradle](https://github.com/metridoc/metridoc-job-core/blob/master/build.gradle) file.
 
 Project Tasks
 -------------
 
-* `GenericBintrayUpload` - used to upload to a generic bintray repo.  Handy for binaries contained in a zip file.  
-the task requires the property `bintrayUsername`, `bintrayPassword` and `bintrayRepo` to be set
+* `GenericBintrayUpload` - used to upload to a generic bintray repo.  Handy for binaries contained in a zip file.  the 
+task requires the property `bintrayUsername`, `bintrayPassword` and `bintrayRepo` to be set either in 
+`~/.gradle/settings.groovy`, or the build file itself.  You can see this task being used in 
 
 Examples
 --------
