@@ -1,6 +1,6 @@
 import metridoc.gradle.GenericBintrayUpload
 
-version = 0.1
+version = new File("VERSION").getText("utf-8")
 apply plugin: "groovy"
 apply plugin: "application"
 apply plugin: "metridoc"
@@ -15,7 +15,7 @@ buildscript {
     }
 
     dependencies {
-        classpath "com.github.metridoc:metridoc-gradle-plugin:0.2.6"
+        classpath "com.github.metridoc:metridoc-gradle-plugin:0.2.11"
     }
 }
 

@@ -26,6 +26,8 @@ class MetridocGradlePlugin implements Plugin<Project> {
         enableMetridocToolGormDepUpdate(project)
         enableMetridocGradlePluginDepUpdate(project)
         enableGitHubRelease(project)
+        addCheckSnapshotTaskTo project
+        addReleaseTaskTo project
     }
 
     protected void enableGitHubRelease(Project project) {
@@ -34,9 +36,20 @@ class MetridocGradlePlugin implements Plugin<Project> {
             def versionToSearch = "/v${project.version}\""
             def tagUrl = "https://api.github.com/repos/metridoc/${archiveBaseName}/tags"
             println "checking if version ${project.version} has already been released"
-            boolean alreadyExists = new URL(tagUrl).text.contains(versionToSearch)
-            if(alreadyExists) {
-                println "version ${project.version} as already been released"
+            boolean disable
+            try {
+                disable = new URL(tagUrl).text.contains(versionToSearch)
+                if(disable) {
+                    println "version ${project.version} as already been released"
+
+                }
+            }
+            catch (FileNotFoundException ignored) {
+                project.logger.warn "project tag url ${tagUrl} probably does not exist"
+                disable = true
+            }
+
+            if (disable) {
                 def tagRepoLocally = project.tasks.findByName("tagRepoLocally")
                 def releaseToGithub = project.tasks.findByName("tagRepoRemotely")
                 def tasks = [tagRepoLocally, releaseToGithub]
@@ -57,19 +70,19 @@ class MetridocGradlePlugin implements Plugin<Project> {
         project.task("releaseToGitHub", dependsOn: ["prepareForGitHubTagging", "tagRepoLocally", "tagRepoRemotely"])
     }
 
-    protected void enableMetridocToolGormDepUpdate(Project project) {
+    protected static void enableMetridocToolGormDepUpdate(Project project) {
         project.task("updateMetridocToolGormVersion") << {
             updateDependencyHelper(project, "metridoc-tool-gorm")
         }
     }
 
-    protected void enableMetridocJobCoreDepUpdate(Project project) {
+    protected static void enableMetridocJobCoreDepUpdate(Project project) {
         project.task("updateMetridocJobCoreVersion") << {
             updateDependencyHelper(project, "metridoc-job-core")
         }
     }
 
-    protected void enableMetridocGradlePluginDepUpdate(Project project) {
+    protected static void enableMetridocGradlePluginDepUpdate(Project project) {
         project.task("updateMetridocGradlePluginVersion") << {
             updateDependencyHelper(project, "metridoc-gradle-plugin")
         }
@@ -181,7 +194,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
         }
     }
 
-    protected void enableDependencyShortCuts(Project project) {
+    protected static void enableDependencyShortCuts(Project project) {
         project.ext.set("metridocJobCore") {
             if (it) {
                 return "com.github.metridoc:metridoc-job-core:$it"
@@ -217,7 +230,6 @@ class MetridocGradlePlugin implements Plugin<Project> {
         Upload installTask = project.tasks.withType(Upload).findByName('install');
         if (!installTask) {
             project.apply(plugin: "maven")
-            installTask = project.tasks.withType(Upload).findByName('install');
         }
 
         project.ext.set("enableMaven") { Closure configurePom ->
@@ -264,5 +276,42 @@ class MetridocGradlePlugin implements Plugin<Project> {
             throw new GradleException("You must define the project property '$name'")
         }
         upload."$name" = proj."$name"
+    }
+
+    protected static void addReleaseTaskTo(Project project) {
+        project.task ("release", dependsOn: ["checkForSnapshots", "releaseToGitHub"])
+    }
+
+    protected static void addCheckSnapshotTaskTo(Project project) {
+        project.task("checkForSnapshots") << {
+            def files = ["VERSION", "build.gradle"] as String[]
+            checkForFiles(files)
+            if(hasSNAPSHOT(files)) {
+                project.logger.warn "SNAPSHOTS were detected in either VERSION or build.gradle, unable to release"
+                project.tasks.findByName("releaseToGitHub").enabled = false
+            }
+        }
+    }
+
+    static void checkForFiles(String... filesToFind) {
+        filesToFind.each {
+            def file = new File(it)
+            assert file.exists() : "file $it does not exist"
+            assert file.isFile() : "file $it is a directory"
+        }
+    }
+
+    protected static boolean hasSNAPSHOT(String... filePaths) {
+        boolean hasSnapshot = false
+        filePaths.each {filePath ->
+            def file = new File(filePath)
+            assert file.exists(): "The file $filePath does not exist"
+
+            if(file.getText("utf-8").contains("SNAPSHOT")) {
+                hasSnapshot = true
+            }
+        }
+
+        return hasSnapshot
     }
 }
