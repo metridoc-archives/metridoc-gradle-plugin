@@ -57,4 +57,19 @@ class MetridocGradlePluginSpec extends Specification {
         then:
         thrown(AssertionError)
     }
+
+    void "test build Dependency from a line"() {
+        given:
+        def url = new URL("http://dl.bintray.com/upennlib/metridoc/com/github/metridoc/metridoc-job-core/maven-metadata.xml")
+        String latest = new XmlSlurper().parse(url.newInputStream()).versioning.latest.text()
+
+        when:
+        String line = "com.github.metridoc:metridoc-job-core http://dl.bintray.com/upennlib/metridoc/com/github/metridoc/metridoc-job-core/maven-metadata.xml"
+        Dependency dependency = MetridocGradlePlugin.getDependency(line)
+
+        then:
+        "http://dl.bintray.com/upennlib/metridoc/com/github/metridoc/metridoc-job-core/maven-metadata.xml" == dependency.url.toString()
+        latest == dependency.latestVersion
+        "com.github.metridoc:metridoc-job-core" == dependency.dependencyName
+    }
 }

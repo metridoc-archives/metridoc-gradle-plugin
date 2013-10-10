@@ -28,6 +28,43 @@ class MetridocGradlePlugin implements Plugin<Project> {
         enableGitHubRelease(project)
         addCheckSnapshotTaskTo project
         addReleaseTaskTo project
+        addUpdateDependenciesTask project
+    }
+
+    static void addUpdateDependenciesTask(Project project) {
+        project.task("updateDependencies") << {
+            checkForFiles("build.gradle")
+            updateDependencies(project)
+        }
+    }
+
+    static void updateDependencies(Project project) {
+        def dependencies = new File("DEPENDENCIES")
+        if(!dependencies) {
+            project.logger.warn "A DEPENDENCIES file was not found, will use the dependencies specified"
+            return
+        }
+
+        dependencies.eachLine("utf-8") {String line ->
+            Dependency dependency = getDependency(line)
+            dependency.updateFile(project.buildFile)
+        }
+    }
+
+    static Dependency getDependency(String line) {
+        def dependencyName
+        def metadataUrlPath
+        (dependencyName, metadataUrlPath) = line.split(" ")
+
+        assert dependencyName : "line [${line}] in DEPENDENCY file did not contain a dependencyName, eg " +
+                "com.github.metridoc:metridoc-job-core"
+
+        assert metadataUrlPath : "line [${line}] in DEPENDENCY file did not contain a dependencyName, eg " +
+                "http://dl.bintray.com/upennlib/metridoc/com/github/metridoc/metridoc-job-core/maven-metadata.xml"
+
+        URL metaDataUrl = new URL(metadataUrlPath)
+
+        return new Dependency(dependencyName: dependencyName, url: metaDataUrl)
     }
 
     protected void enableGitHubRelease(Project project) {
@@ -279,7 +316,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
     }
 
     protected static void addReleaseTaskTo(Project project) {
-        project.task ("release", dependsOn: ["checkForSnapshots", "releaseToGitHub"])
+        project.task ("release", dependsOn: ["checkForSnapshots", "releaseToGitHub", "updateDependencies"])
     }
 
     protected static void addCheckSnapshotTaskTo(Project project) {
@@ -313,5 +350,45 @@ class MetridocGradlePlugin implements Plugin<Project> {
         }
 
         return hasSnapshot
+    }
+}
+
+class Dependency {
+    URL url
+    String dependencyName
+    private String _latestVersion
+
+    String getLatestVersion() {
+        assert url : "url cannot be null"
+        if(_latestVersion) return _latestVersion
+
+        try {
+            _latestVersion = new XmlSlurper().parse(url.newInputStream()).versioning.latest.text()
+        }
+        catch (Throwable throwable) {
+            println "ERROR: Could not extract latest version from ${url}"
+            throw throwable
+        }
+
+        return _latestVersion
+    }
+
+    void updateFile(String filePath) {
+        updateFile(new File(filePath))
+    }
+
+    void updateFile(File filePath) {
+        println "checking if ${dependencyName} version matches $latestVersion"
+
+        def buildFileText = filePath.getText("utf-8")
+        def hasDependency = buildFileText.contains("${dependencyName}:")
+        if (hasDependency) {
+            def pattern = /${dependencyName}:\d+\.\d+(\.\d+)?/
+            def newText = buildFileText.replaceFirst(pattern, "${dependencyName}:$latestVersion")
+            filePath.write(newText, "utf-8")
+        }
+        else {
+            println "WARN: checked for ${dependencyName} dependency, but didn't find it"
+        }
     }
 }
