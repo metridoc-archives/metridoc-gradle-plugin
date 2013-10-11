@@ -17,21 +17,17 @@ import org.gradle.execution.taskgraph.DefaultTaskGraphExecuter
 class MetridocGradlePlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
-        enableMavenSupport(project)
-        enableJavadocAndSourceArchives(project)
-        enableDependencyShortCuts(project)
-        enableWrapper(project)
-        enableBintrayUpload(project)
-        enableMetridocJobCoreDepUpdate(project)
-        enableMetridocToolGormDepUpdate(project)
-        enableMetridocGradlePluginDepUpdate(project)
-        enableGitHubRelease(project)
+        addMavenSupportTo project
+        addJavadocAndSourceArchivesTaskTo project
+        addWrapperTaskTo project
         addCheckSnapshotTaskTo project
+        addGitHubReleaseTo project
+        addBintrayUploadTaskTo project
         addReleaseTaskTo project
-        addUpdateDependenciesTask project
+        addUpdateDependenciesTaskTo project
     }
 
-    static void addUpdateDependenciesTask(Project project) {
+    static void addUpdateDependenciesTaskTo(Project project) {
         project.task("updateDependencies") << {
             checkForFiles("build.gradle")
             updateDependencies(project)
@@ -67,7 +63,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
         return new Dependency(dependencyName: dependencyName, url: metaDataUrl)
     }
 
-    protected void enableGitHubRelease(Project project) {
+    protected static void addGitHubReleaseTo(Project project) {
         project.task("prepareForGitHubTagging") << {
             def archiveBaseName = project.properties.archivesBaseName
             def versionToSearch = "/v${project.version}\""
@@ -107,44 +103,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
         project.task("releaseToGitHub", dependsOn: ["prepareForGitHubTagging", "tagRepoLocally", "tagRepoRemotely"])
     }
 
-    protected static void enableMetridocToolGormDepUpdate(Project project) {
-        project.task("updateMetridocToolGormVersion") << {
-            updateDependencyHelper(project, "metridoc-tool-gorm")
-        }
-    }
-
-    protected static void enableMetridocJobCoreDepUpdate(Project project) {
-        project.task("updateMetridocJobCoreVersion") << {
-            updateDependencyHelper(project, "metridoc-job-core")
-        }
-    }
-
-    protected static void enableMetridocGradlePluginDepUpdate(Project project) {
-        project.task("updateMetridocGradlePluginVersion") << {
-            updateDependencyHelper(project, "metridoc-gradle-plugin")
-        }
-    }
-
-    protected static void updateDependencyHelper(Project project, String dependency) {
-        def url = new URL("http://dl.bintray.com/upennlib/metridoc/com/github/metridoc/${dependency}/maven-metadata.xml")
-        def xml = new XmlSlurper().parse(url.newInputStream())
-        def latestVersion = xml.versioning.latest.text()
-        println "checking if ${dependency} version matches $latestVersion"
-
-        def buildFile = project.buildFile
-        def buildFileText = buildFile.getText("utf-8")
-        def hasDependency = buildFileText.contains("com.github.metridoc:${dependency}:")
-        if (hasDependency) {
-            def pattern = /${dependency}:\d+\.\d+(\.\d+)?/
-            def newText = buildFileText.replaceFirst(pattern, "${dependency}:$latestVersion")
-            buildFile.write(newText, "utf-8")
-        }
-        else {
-            project.logger.warn "checked for ${dependency} dependency, but didn't find it"
-        }
-    }
-
-    protected void enableBintrayUpload(Project project) {
+    protected static void addBintrayUploadTaskTo(Project project) {
         project.task("uploadToBintray", dependsOn: ["prepareForBintrayUpload", "uploadArchives", "publishArtifacts"])
         project.task("prepareForBintrayUpload") << {
 
@@ -225,33 +184,13 @@ class MetridocGradlePlugin implements Plugin<Project> {
         }
     }
 
-    protected void enableWrapper(Project project) {
+    protected static void addWrapperTaskTo(Project project) {
         project.task("wrapper", type: Wrapper) {
             gradleVersion = project.hasProperty("gradleWrapperVersion") ? project.gradleWrapperVersion : "1.7"
         }
     }
 
-    protected static void enableDependencyShortCuts(Project project) {
-        project.ext.set("metridocJobCore") {
-            if (it) {
-                return "com.github.metridoc:metridoc-job-core:$it"
-            }
-            else {
-                return 'com.github.metridoc:metridoc-job-core:latest.integration'
-            }
-        }
-
-        project.ext.set("metridocToolGorm") {
-            if (it) {
-                return "com.github.metridoc:metridoc-tool-gorm:$it"
-            }
-            else {
-                return 'com.github.metridoc:metridoc-tool-gorm:latest.integration'
-            }
-        }
-    }
-
-    protected void enableJavadocAndSourceArchives(Project project) {
+    protected static void addJavadocAndSourceArchivesTaskTo(Project project) {
         project.task("packageJavadoc", type: Jar, dependsOn: 'groovydoc') {
             from project.groovydoc.destinationDir
             classifier = 'javadoc'
@@ -263,7 +202,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
         }
     }
 
-    protected void enableMavenSupport(Project project) {
+    protected static void addMavenSupportTo(Project project) {
         Upload installTask = project.tasks.withType(Upload).findByName('install');
         if (!installTask) {
             project.apply(plugin: "maven")
