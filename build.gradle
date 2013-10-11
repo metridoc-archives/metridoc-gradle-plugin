@@ -69,3 +69,14 @@ task("publishArchives", dependsOn: ["uploadArchives"]) << {
         project.logger.warn "artifacts may have been uploaded, but they have not been published"
     }
 }
+
+task("bumpVersion") << {
+    def versionFile = new File("VERSION")
+    def m = version =~ /^(\d+\.\d+)\.(\d+)$/
+    assert m.matches(): "version $version is not in the [0.0.0] format"
+    String majorVersionText = m.group(1)
+    String minorVersionText = m.group(2)
+    String newMinorVersionText = String.valueOf(Integer.valueOf(minorVersionText) + 1)
+    String newVersion = "${majorVersionText}.${newMinorVersionText}-SNAPSHOT"
+    versionFile.write(newVersion, "utf-8")
+}
