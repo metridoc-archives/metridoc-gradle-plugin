@@ -1,10 +1,8 @@
 package metridoc.gradle
 
-import groovy.json.JsonSlurper
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.Upload
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.wrapper.Wrapper
@@ -20,11 +18,27 @@ class MetridocGradlePlugin implements Plugin<Project> {
         addMavenSupportTo project
         addJavadocAndSourceArchivesTaskTo project
         addWrapperTaskTo project
-        addCheckSnapshotTaskTo project
-        addGitHubReleaseTo project
-        addBintrayUploadTaskTo project
-        addReleaseTaskTo project
+        addBintrayTasksTo project
         addUpdateDependenciesTaskTo project
+        addBumpVersionTaskTo project
+    }
+
+    static void addBumpVersionTaskTo(Project project) {
+        project.task("bumpVersion") << {
+            def versionFile = new File("VERSION")
+            bumpVersion(versionFile)
+        }
+    }
+
+    protected static void bumpVersion(File versionFile) {
+        String version = versionFile.text
+        def m = version =~ /^(\d+\.\d+)\.(\d+)$/
+        assert m.matches(): "version $version is not in the [0.0.0] format"
+        String majorVersionText = m.group(1)
+        String minorVersionText = m.group(2)
+        String newMinorVersionText = String.valueOf(Integer.valueOf(minorVersionText) + 1)
+        String newVersion = "${majorVersionText}.${newMinorVersionText}-SNAPSHOT"
+        versionFile.write(newVersion, "utf-8")
     }
 
     static void addUpdateDependenciesTaskTo(Project project) {
@@ -36,12 +50,12 @@ class MetridocGradlePlugin implements Plugin<Project> {
 
     static void updateDependencies(Project project) {
         def dependencies = new File("DEPENDENCIES")
-        if(!dependencies) {
+        if (!dependencies) {
             project.logger.warn "A DEPENDENCIES file was not found, will use the dependencies specified"
             return
         }
 
-        dependencies.eachLine("utf-8") {String line ->
+        dependencies.eachLine("utf-8") { String line ->
             Dependency dependency = getDependency(line)
             dependency.updateFile(project.buildFile)
         }
@@ -52,10 +66,10 @@ class MetridocGradlePlugin implements Plugin<Project> {
         def metadataUrlPath
         (dependencyName, metadataUrlPath) = line.split(" ")
 
-        assert dependencyName : "line [${line}] in DEPENDENCY file did not contain a dependencyName, eg " +
+        assert dependencyName: "line [${line}] in DEPENDENCY file did not contain a dependencyName, eg " +
                 "com.github.metridoc:metridoc-job-core"
 
-        assert metadataUrlPath : "line [${line}] in DEPENDENCY file did not contain a dependencyName, eg " +
+        assert metadataUrlPath: "line [${line}] in DEPENDENCY file did not contain a dependencyName, eg " +
                 "http://dl.bintray.com/upennlib/metridoc/com/github/metridoc/metridoc-job-core/maven-metadata.xml"
 
         URL metaDataUrl = new URL(metadataUrlPath)
@@ -63,110 +77,25 @@ class MetridocGradlePlugin implements Plugin<Project> {
         return new Dependency(dependencyName: dependencyName, url: metaDataUrl)
     }
 
-    protected static void addGitHubReleaseTo(Project project) {
-        project.task("prepareForGitHubTagging") << {
-            def archiveBaseName = project.properties.archivesBaseName
-            def versionToSearch = "/v${project.version}\""
-            def tagUrl = "https://api.github.com/repos/metridoc/${archiveBaseName}/tags"
-            println "checking if version ${project.version} has already been released"
-            boolean disable
-            try {
-                disable = new URL(tagUrl).text.contains(versionToSearch)
-                if(disable) {
-                    println "version ${project.version} as already been released"
+    protected static void addBintrayTasksTo(Project project) {
+        project.task("publishArchives", dependsOn: ["uploadArchives"]) << {
+            def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc/" +
+                    "${project.properties.archivesBaseName}/$project.version/publish"
+            project.logger.info "publishing to $bintrayRepo"
+            new URI(bintrayRepo).toURL().openConnection().with {
+                doOutput = true
+                doInput = true
+                // Add basic authentication header.
+                def bintrayUsername = project.properties.bintrayUsername
+                def bintrayPassword = project.properties.bintrayPassword
+                setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
+                requestMethod = "POST"
+                outputStream.flush()
+                outputStream.close()
+                project.logger.info inputStream.text
+                inputStream.close()
 
-                }
-            }
-            catch (FileNotFoundException ignored) {
-                project.logger.warn "project tag url ${tagUrl} probably does not exist"
-                disable = true
-            }
-
-            if (disable) {
-                def tagRepoLocally = project.tasks.findByName("tagRepoLocally")
-                def releaseToGithub = project.tasks.findByName("tagRepoRemotely")
-                def tasks = [tagRepoLocally, releaseToGithub]
-                tasks*.enabled = false
-            }
-        }
-
-        project.task(type: Exec, dependsOn: "prepareForGitHubTagging", "tagRepoLocally")  {
-            commandLine 'git', 'tag', '-a', "v${project.version}", '-m', "'releasing ${project.version} to github'"
-            //in case the tag was already made
-            ignoreExitValue = true
-        }
-
-        project.task(type: Exec, dependsOn: "tagRepoLocally", "tagRepoRemotely") {
-            commandLine 'git', 'push', 'origin', "v${project.version}"
-        }
-
-        project.task("releaseToGitHub", dependsOn: ["prepareForGitHubTagging", "tagRepoLocally", "tagRepoRemotely"])
-    }
-
-    protected static void addBintrayUploadTaskTo(Project project) {
-        project.task("uploadToBintray", dependsOn: ["prepareForBintrayUpload", "uploadArchives", "publishArtifacts"])
-        project.task("prepareForBintrayUpload") << {
-
-            def uploadArchives = project.tasks.findByName("uploadArchives")
-            def publishArtifacts = project.tasks.findByName("publishArtifacts")
-            def tasks = [uploadArchives, publishArtifacts]
-
-            if (!project.version || "unspecified" == project.version) {
-                project.logger.warn "a project version is required to upload to bintray, [uploadToBintray] task has been skipped"
-                tasks*.enabled = false
-                return
-            }
-
-            if (project.version.toString().contains("SNAPSHOT")) {
-                println "bintray does not support SNAPSHOTs, skipping upload to bintray"
-                tasks*.enabled = false
-                return
-            }
-
-            if (!project.hasProperty("bintrayUsername") || !project.hasProperty("bintrayPassword")) {
-                println "bintray credentials not setup, skipping upload to bintray"
-                tasks*.enabled = false
-                return
-            }
-
-            def json = new URL("https://api.bintray.com/packages/upennlib/metridoc/${project.properties.archivesBaseName}").text
-            def slurper = new JsonSlurper()
-            def versions = slurper.parseText(json).versions
-            def versionAlreadyDeployed = versions.contains(project.version.toString())
-
-            if (versionAlreadyDeployed) {
-                println "version $project.version has already been deployed to bintray, skipping upload to bintray"
-                tasks*.enabled = false
-            }
-        }
-        def uploadArchives = project.tasks.findByName("uploadArchives")
-
-        uploadArchives.dependsOn("prepareForBintrayUpload")
-
-        project.task("publishArtifacts", dependsOn: ["prepareForBintrayUpload", "uploadArchives"]) << {
-            def shouldPublish = project.hasProperty("publish") && Boolean.valueOf(project.properties.publish)
-            if (shouldPublish) {
-                def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc/" +
-                        "${project.properties.archivesBaseName}/$project.version/publish"
-                project.logger.info "publishing to $bintrayRepo"
-                new URI(bintrayRepo).toURL().openConnection().with {
-                    doOutput = true
-                    doInput = true
-                    // Add basic authentication header.
-                    def bintrayUsername = project.properties.bintrayUsername
-                    def bintrayPassword = project.properties.bintrayPassword
-                    setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
-                    requestMethod = "POST"
-                    outputStream.flush()
-                    outputStream.close()
-                    project.logger.info inputStream.text
-                    inputStream.close()
-
-                    assert responseCode >= 200 && responseCode < 300
-                }
-            }
-            else {
-                project.logger.warn "artifacts may have been uploaded, but they have not been published"
+                assert responseCode >= 200 && responseCode < 300
             }
         }
 
@@ -254,41 +183,12 @@ class MetridocGradlePlugin implements Plugin<Project> {
         upload."$name" = proj."$name"
     }
 
-    protected static void addReleaseTaskTo(Project project) {
-        project.task ("release", dependsOn: ["checkForSnapshots", "releaseToGitHub", "updateDependencies"])
-    }
-
-    protected static void addCheckSnapshotTaskTo(Project project) {
-        project.task("checkForSnapshots") << {
-            def files = ["VERSION", "build.gradle"] as String[]
-            checkForFiles(files)
-            if(hasSNAPSHOT(files)) {
-                project.logger.warn "SNAPSHOTS were detected in either VERSION or build.gradle, unable to release"
-                project.tasks.findByName("releaseToGitHub").enabled = false
-            }
-        }
-    }
-
     static void checkForFiles(String... filesToFind) {
         filesToFind.each {
             def file = new File(it)
-            assert file.exists() : "file $it does not exist"
-            assert file.isFile() : "file $it is a directory"
+            assert file.exists(): "file $it does not exist"
+            assert file.isFile(): "file $it is a directory"
         }
-    }
-
-    protected static boolean hasSNAPSHOT(String... filePaths) {
-        boolean hasSnapshot = false
-        filePaths.each {filePath ->
-            def file = new File(filePath)
-            assert file.exists(): "The file $filePath does not exist"
-
-            if(file.getText("utf-8").contains("SNAPSHOT")) {
-                hasSnapshot = true
-            }
-        }
-
-        return hasSnapshot
     }
 }
 
@@ -298,8 +198,8 @@ class Dependency {
     private String _latestVersion
 
     String getLatestVersion() {
-        assert url : "url cannot be null"
-        if(_latestVersion) return _latestVersion
+        assert url: "url cannot be null"
+        if (_latestVersion) return _latestVersion
 
         try {
             _latestVersion = new XmlSlurper().parse(url.newInputStream()).versioning.latest.text()

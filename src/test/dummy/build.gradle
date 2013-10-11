@@ -15,7 +15,7 @@ buildscript {
     }
 
     dependencies {
-        classpath "com.github.metridoc:metridoc-gradle-plugin:0.2.11"
+        classpath "com.github.metridoc:metridoc-gradle-plugin:0.2.11-SNAPSHOT"
     }
 }
 
@@ -31,7 +31,7 @@ repositories {
 
 dependencies {
     compile 'org.codehaus.groovy:groovy-all:2.0.8'
-    compile "com.github.metridoc:metridoc-job-core:0.9.3"
+    compile "com.github.metridoc:metridoc-job-core:1.0.2"
     compile "com.github.metridoc:metridoc-tool-gorm:0.3.3"
     testCompile 'org.spockframework:spock-core:0.7-groovy-2.0'
 }

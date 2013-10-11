@@ -13,29 +13,6 @@ class MetridocGradlePluginSpec extends Specification {
     @Rule
     TemporaryFolder temporaryFolder = new TemporaryFolder()
 
-    void "test searching for SNAPSHOT in a file"() {
-        when:
-        def hasSnapshotFile = temporaryFolder.newFile("hasSnapshot.txt")
-        hasSnapshotFile.write("SNAPSHOT")
-        boolean hasSnapshot = MetridocGradlePlugin.hasSNAPSHOT(hasSnapshotFile.path)
-
-        then:
-        hasSnapshot
-
-        when:
-        def noSnapshotFile = temporaryFolder.newFile("noSnapshot.txt")
-        hasSnapshot = MetridocGradlePlugin.hasSNAPSHOT(noSnapshotFile.path)
-
-        then:
-        !hasSnapshot
-
-        when:
-        MetridocGradlePlugin.hasSNAPSHOT("/does/not/exist")
-
-        then:
-        thrown(AssertionError)
-    }
-
     void "test that build files exist"() {
         when:
         def buildFile = temporaryFolder.newFile("buildFile.txt").path
@@ -71,5 +48,17 @@ class MetridocGradlePluginSpec extends Specification {
         "http://dl.bintray.com/upennlib/metridoc/com/github/metridoc/metridoc-job-core/maven-metadata.xml" == dependency.url.toString()
         latest == dependency.latestVersion
         "com.github.metridoc:metridoc-job-core" == dependency.dependencyName
+    }
+
+    void "bump version test"() {
+        given:
+        def version = temporaryFolder.newFile("VERSION")
+        version.write("1.3.1")
+
+        when:
+        MetridocGradlePlugin.bumpVersion(version)
+
+        then:
+        "1.3.2-SNAPSHOT" == version.text
     }
 }
