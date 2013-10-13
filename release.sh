@@ -8,7 +8,8 @@
 #fi
 
 systemCall() {
-    if $1; then
+    echo "running $1"
+    if eval $1; then
 		echo "command ran"
 	else
 		echo "command failed"
@@ -33,7 +34,7 @@ echo ""
 echo "Releasing ${PROJECT_VERSION} to GitHub"
 echo ""
 
-systemCall "git tag -a v${PROJECT_VERSION} -m'tagging release'"
+systemCall "git tag -a v${PROJECT_VERSION} -m 'tagging release'"
 systemCall "git push origin v${PROJECT_VERSION}"
 
 #release to bintray
@@ -43,5 +44,5 @@ echo ""
 
 systemCall "./gradlew publishArchives bumpVersion"
 systemCall "git add VERSION"
-systemCall "git commit -m'committing a new version'"
+systemCall "git commit -m 'committing a new version'"
 systemCall "git push origin master"
