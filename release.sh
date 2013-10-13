@@ -7,6 +7,15 @@
 #    exit 0
 #fi
 
+systemCall() {
+    if $1; then
+		echo "command ran"
+	else
+		echo "command failed"
+		exit $?
+	fi
+}
+
 if grep -q "\-SNAPSHOT" "VERSION"; then
     echo "VERSION file has SNAPSHOT in it, skipping release"
     exit 0
@@ -16,38 +25,23 @@ echo ""
 echo "Testing the application before releasing"
 echo ""
 
-#test before release
-if ./gradlew test; then
-    echo "all tests pass"
-else
-    exit $?
-fi
-
-
+systemCall "./gradlew test"
 
 #releases to github
 PROJECT_VERSION=`cat VERSION`
 echo ""
 echo "Releasing ${PROJECT_VERSION} to GitHub"
 echo ""
-if git tag -a v${PROJECT_VERSION} -m"tagging release"; then
-    echo "tagged project locally"
-else
-    exit $?
-fi
 
-if git push origin v${PROJECT_VERSION}; then
-    echo "tagged project locally"
-else
-    exit $?
-fi
+systemCall "git tag -a v${PROJECT_VERSION} -m'tagging release'"
+systemCall "git push origin v${PROJECT_VERSION}"
 
 #release to bintray
 echo ""
 echo "Releasing ${PROJECT_VERSION} to BinTray"
 echo ""
-if ./gradlew publishArchives bumpVersion; then
-    echo "archives published"
-else
-    exit $?
-fi
+
+systemCall "./gradlew publishArchives bumpVersion"
+systemCall "git add VERSION"
+systemCall "git commit -m'committing a new version'"
+systemCall "git push origin master"
