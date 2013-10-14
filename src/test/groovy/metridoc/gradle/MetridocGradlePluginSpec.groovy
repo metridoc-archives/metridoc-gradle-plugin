@@ -1,5 +1,6 @@
 package metridoc.gradle
 
+import org.gradle.api.Project
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
@@ -67,5 +68,29 @@ class MetridocGradlePluginSpec extends Specification {
 
         then:
         thrown(AssertionError)
+
+        when:
+        version.write("1.5.0\n")
+        MetridocGradlePlugin.bumpVersion(version)
+
+        then: "new line should not matter"
+        "1.5.1-SNAPSHOT" == version.text
+    }
+
+    void "getVersionTest"() {
+        given:
+        Project project = [
+            getProjectDir: {
+                temporaryFolder.root
+            }
+        ] as Project
+        def versionFile = temporaryFolder.newFile("VERSION")
+        versionFile.write("  0.1.1\n   ")
+
+        when:
+        def version = MetridocGradlePlugin.getVersion(project)
+
+        then: "whitespace is removed"
+        "0.1.1" == version
     }
 }
