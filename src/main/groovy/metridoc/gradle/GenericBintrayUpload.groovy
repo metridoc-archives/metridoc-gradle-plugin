@@ -27,7 +27,7 @@ class GenericBintrayUpload extends DefaultTask {
      */
     String bintrayUsername
 
-    /** The Bintray API key for the {@link username} account. */
+    /** The Bintray API key for the username account. */
     String bintrayPassword
 
     @TaskAction
@@ -56,27 +56,21 @@ class GenericBintrayUpload extends DefaultTask {
                 assert responseCode >= 200 && responseCode < 300
             }
 
-            def shouldPublish = project.hasProperty("publish") && Boolean.valueOf(project.properties.publish)
-            if (shouldPublish) {
-                def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc-distributions/" +
-                        "${project.properties.archivesBaseName}/$project.version/publish"
-                project.logger.info "publishing to $bintrayRepo"
-                new URI(bintrayRepo).toURL().openConnection().with {
-                    doOutput = true
-                    doInput = true
-                    // Add basic authentication header.
-                    setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
-                    requestMethod = "POST"
-                    outputStream.flush()
-                    outputStream.close()
-                    project.logger.info inputStream.text
-                    inputStream.close()
+            def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc-distributions/" +
+                    "${project.properties.archivesBaseName}/$project.version/publish"
+            project.logger.info "publishing to $bintrayRepo"
+            new URI(bintrayRepo).toURL().openConnection().with {
+                doOutput = true
+                doInput = true
+                // Add basic authentication header.
+                setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
+                requestMethod = "POST"
+                outputStream.flush()
+                outputStream.close()
+                project.logger.info inputStream.text
+                inputStream.close()
 
-                    assert responseCode >= 200 && responseCode < 300
-                }
-            }
-            else {
-                project.logger.warn "artifacts may have been uploaded, but they have not been published"
+                assert responseCode >= 200 && responseCode < 300
             }
         }
     }
@@ -92,7 +86,7 @@ class GenericBintrayUpload extends DefaultTask {
             return true
         }
 
-        assert bintrayUsername && bintrayPassword : "bintray user name and / or password have not been set"
+        assert bintrayUsername && bintrayPassword: "bintray user name and / or password have not been set"
 
 
         def url = "https://api.bintray.com/packages/upennlib/metridoc-distributions/${project.properties.archivesBaseName}"
