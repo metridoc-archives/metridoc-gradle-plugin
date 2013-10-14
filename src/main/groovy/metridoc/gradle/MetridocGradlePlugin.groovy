@@ -25,13 +25,20 @@ class MetridocGradlePlugin implements Plugin<Project> {
 
     static void addBumpVersionTaskTo(Project project) {
         project.task("bumpVersion") << {
-            def versionFile = new File("VERSION")
-            bumpVersion(versionFile)
+            bumpVersion(getVersionFile(project))
         }
     }
 
+    protected static String getVersion(Project project) {
+        getVersionFile(project).text.trim()
+    }
+
+    protected static File getVersionFile(Project project) {
+        new File(project.projectDir, "VERSION")
+    }
+
     protected static void bumpVersion(File versionFile) {
-        String version = versionFile.text
+        String version = versionFile.text.trim()
         def m = version =~ /^(\d+\.\d+)\.(\d+)$/
         assert m.matches(): "version $version is not in the [0.0.0] format"
         String majorVersionText = m.group(1)
@@ -80,7 +87,7 @@ class MetridocGradlePlugin implements Plugin<Project> {
     protected static void addBintrayTasksTo(Project project) {
         project.task("publishArchives", dependsOn: ["uploadArchives"]) << {
             def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc/" +
-                    "${project.properties.archivesBaseName}/$project.version/publish"
+                    "${project.properties.archivesBaseName}/${getVersion(project)}/publish"
             project.logger.info "publishing to $bintrayRepo"
             new URI(bintrayRepo).toURL().openConnection().with {
                 doOutput = true
