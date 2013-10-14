@@ -44,29 +44,23 @@ uploadArchives {
 }
 
 task("publishArchives", dependsOn: ["uploadArchives"]) << {
-    def shouldPublish = project.hasProperty("publish") && Boolean.valueOf(project.properties.publish)
-    if (shouldPublish) {
-        def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc/" +
-                "${project.properties.archivesBaseName}/$project.version/publish"
-        project.logger.info "publishing to $bintrayRepo"
-        new URI(bintrayRepo).toURL().openConnection().with {
-            doOutput = true
-            doInput = true
-            // Add basic authentication header.
-            def bintrayUsername = project.properties.bintrayUsername
-            def bintrayPassword = project.properties.bintrayPassword
-            setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
-            requestMethod = "POST"
-            outputStream.flush()
-            outputStream.close()
-            project.logger.info inputStream.text
-            inputStream.close()
+    def bintrayRepo = "https://api.bintray.com/content/upennlib/metridoc/" +
+            "${project.properties.archivesBaseName}/$project.version/publish"
+    project.logger.info "publishing to $bintrayRepo"
+    new URI(bintrayRepo).toURL().openConnection().with {
+        doOutput = true
+        doInput = true
+        // Add basic authentication header.
+        def bintrayUsername = project.properties.bintrayUsername
+        def bintrayPassword = project.properties.bintrayPassword
+        setRequestProperty "Authorization", "Basic " + "$bintrayUsername:$bintrayPassword".getBytes().encodeBase64().toString()
+        requestMethod = "POST"
+        outputStream.flush()
+        outputStream.close()
+        project.logger.info inputStream.text
+        inputStream.close()
 
-            assert responseCode >= 200 && responseCode < 300
-        }
-    }
-    else {
-        project.logger.warn "artifacts may have been uploaded, but they have not been published"
+        assert responseCode >= 200 && responseCode < 300
     }
 }
 
