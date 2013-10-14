@@ -60,5 +60,12 @@ class MetridocGradlePluginSpec extends Specification {
 
         then:
         "1.3.2-SNAPSHOT" == version.text
+
+        when:
+        version.write("1.5")
+        MetridocGradlePlugin.bumpVersion(version)
+
+        then:
+        thrown(AssertionError)
     }
 }
