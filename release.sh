@@ -10,10 +10,10 @@
 systemCall() {
     echo "running $1"
     if eval $1; then
-		echo "command ran"
+		echo "command [$1] ran successfully"
 	else
-		echo "command failed"
-		exit $?
+		echo "command [$1] failed with exit status [$?]"
+		exit 1
 	fi
 }
 
